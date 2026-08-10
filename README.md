@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brand Extractor
 
-## Getting Started
+Paste a website URL, get its brand color palette + images, download selected
+images as locally-converted AVIF, and copy a ready-to-paste master prompt for
+Claude Code to apply the branding to your own template.
 
-First, run the development server:
+## Setup
 
 ```bash
+npm install
+npx playwright install chromium   # one-time browser download for bot-blocked sites
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/api/extract` fetches the target site server-side, parses images
+  (og:image, icons, `<img>` tags) with cheerio, mines hex/rgb colors out of
+  its linked stylesheets, and runs `node-vibrant` on the logo/icon to pull a
+  palette from the image itself. CSS-frequency colors (the literal hex
+  values the site deploys) lead the palette since they're an exact match;
+  logo-derived colors only fill remaining slots as an approximation.
+- Sites with bot protection (Akamai/Cloudflare/SiteGround-style WAFs) reject
+  plain server-side `fetch`, and some serve a soft-block (HTTP 200 with a
+  near-empty or CAPTCHA-redirect page) instead of a clean 403. `lib/extract.ts`
+  tries plain `fetch` first (fast), then a real headless Chromium
+  (`lib/browserFetch.ts`, via Playwright), then a residential-proxy API
+  (`lib/scraperApi.ts`, via ScraperAPI) -- validating actual content at each
+  tier rather than trusting status codes alone.
+- Displayed thumbnails try loading directly from the source site first; if
+  that fails (hotlink protection), they retry through `app/api/image`, which
+  fetches server-side using the same fallback chain.
+- `app/api/download` fetches an image through that same resilient chain and
+  converts it to AVIF locally with `sharp` -- no third-party service in the
+  loop, so it isn't dependent on any external account being configured
+  correctly. Downloads carry `X-Original-Size` / `X-Optimized-Size`
+  response headers so the UI can show the size savings after each download.
+- The master prompt is built client-side (`lib/prompt.ts`) from whatever
+  colors/images are currently selected, referencing the original site URLs
+  (there's no public re-hostable CDN link once Uploadcare is out of the
+  picture -- downloaded AVIF files are for dropping into your own project).
 
-## Learn More
+## Notes / known limits
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Color extraction is heuristic (CSS frequency + logo palette), not a
+  design-system parser -- treat the output as a strong starting point, not
+  ground truth.
+- No auth, rate limiting, or persistence -- this is a single-user local tool.
+- The Playwright fallback needs a real Chromium binary (`playwright install
+  chromium`) and a long-lived Node process to reuse the launched browser.
+  It runs fine with `npm run dev`/`next start` on a normal server, but
+  won't work out of the box on serverless platforms without extra setup
+  (e.g. `@sparticuz/chromium` on Vercel/AWS Lambda).
+- A small number of sites use stronger bot protection (device fingerprint
+  challenges, interactive CAPTCHAs) that no automated fallback can clear --
+  those will still fail extraction or per-image download.
