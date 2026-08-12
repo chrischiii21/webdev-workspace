@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import ffmpegPath from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
+import youtubedl from "youtube-dl-exec";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +12,44 @@ if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 const MAX_WIDTH = 1600;
 const MAX_VIDEO_WIDTH = 1280;
+
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtu.be",
+]);
+
+function isYouTubeUrl(url: URL): boolean {
+  return YOUTUBE_HOSTS.has(url.hostname.toLowerCase());
+}
+
+async function fetchYouTubeVideo(
+  url: string,
+): Promise<{ raw: Buffer; name: string; type: string } | { error: string }> {
+  const dir = await mkdtemp(join(tmpdir(), "ytdlp-"));
+  const outPath = join(dir, "video.mp4");
+  try {
+    const info = await youtubedl(url, {
+      output: outPath,
+      format: "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b",
+      mergeOutputFormat: "mp4",
+      noPlaylist: true,
+      noWarnings: true,
+      printJson: true,
+      ...(ffmpegPath && { ffmpegLocation: ffmpegPath }),
+    });
+    const raw = await readFile(outPath);
+    const rawTitle = typeof info === "object" && "title" in info ? String(info.title) : "video";
+    const title = rawTitle.replace(/[^\x20-\x7E]/g, "").replace(/["\\]/g, "").trim().slice(0, 80) || "video";
+    return { raw, name: `${title}.mp4`, type: "video/mp4" };
+  } catch {
+    return { error: "Couldn't download that YouTube video." };
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -50,6 +89,7 @@ async function fetchRemoteMedia(
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return { error: "Only http/https URLs are supported." };
   }
+  if (isYouTubeUrl(url)) return fetchYouTubeVideo(rawUrl);
   try {
     const { address } = await lookup(url.hostname);
     if (isPrivateAddress(address)) return { error: "That host isn't allowed." };

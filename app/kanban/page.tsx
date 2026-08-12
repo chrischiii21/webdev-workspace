@@ -238,7 +238,7 @@ export default function KanbanPage() {
     const status = creatingStatus ?? "todo";
     const checklist = newChecklistOn ? newChecklist : [];
     const task: Task = { ...data.task, status, checklist };
-    setTasks((prev) => [...prev, task]);
+    setTasks((prev) => [task, ...prev]);
     const patch: Partial<Task> = {};
     if (status !== data.task.status) patch.status = status;
     if (checklist.length > 0) patch.checklist = checklist;
@@ -260,7 +260,7 @@ export default function KanbanPage() {
 
   function moveTask(id: string, status: Status) {
     const task = tasks.find((t) => t.id === id);
-    if (!task || task.status === status) return;
+    if (!task || task.status === status || task.status === "done") return;
     refreshTask(id, { status });
   }
 
@@ -338,7 +338,7 @@ export default function KanbanPage() {
                     return (
                       <button
                         key={task.id}
-                        draggable
+                        draggable={task.status !== "done"}
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/task-id", task.id);
                           setDraggingId(task.id);
@@ -370,17 +370,22 @@ export default function KanbanPage() {
                         <span className="text-sm font-medium leading-snug text-foreground">
                           {task.title}
                         </span>
+                        {task.description && (
+                          <p className="line-clamp-2 text-xs text-foreground/50">
+                            {task.description}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 text-[11px] text-foreground/50">
                           <span className="flex items-center gap-1">
                             <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[task.priority]}`} />
                             <span className="capitalize">{task.priority}</span>
                           </span>
                           {assignee && (
-                            <span
-                              title={assignee}
-                              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[9px] font-semibold text-white"
-                            >
-                              {assignee[0]?.toUpperCase()}
+                            <span className="flex items-center gap-1">
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[9px] font-semibold text-white">
+                                {assignee[0]?.toUpperCase()}
+                              </span>
+                              <span>{assignee}</span>
                             </span>
                           )}
                           {task.checklist.length > 0 && (
@@ -574,15 +579,17 @@ export default function KanbanPage() {
                 >
                   {active.priority}
                 </span>
-                <button
-                  type="button"
-                  aria-label={editing ? "Done editing" : "Edit task"}
-                  title={editing ? "Done editing" : "Edit task"}
-                  onClick={() => setEditing((v) => !v)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-foreground/60 hover:bg-[var(--surface-muted)]"
-                >
-                  {editing ? <CheckIcon /> : <PencilIcon />}
-                </button>
+                {active.status !== "done" && (
+                  <button
+                    type="button"
+                    aria-label={editing ? "Done editing" : "Edit task"}
+                    title={editing ? "Done editing" : "Edit task"}
+                    onClick={() => setEditing((v) => !v)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-foreground/60 hover:bg-[var(--surface-muted)]"
+                  >
+                    {editing ? <CheckIcon /> : <PencilIcon />}
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label="Delete task"
@@ -699,43 +706,48 @@ export default function KanbanPage() {
                   <input
                     type="checkbox"
                     checked={item.done}
+                    disabled={active.status === "done"}
                     onChange={() => toggleChecklistItem(item.id)}
                   />
                   <span className={item.done ? "flex-1 line-through opacity-50" : "flex-1"}>
                     {item.text}
                   </span>
-                  <button
-                    type="button"
-                    aria-label="Remove checklist item"
-                    title="Remove checklist item"
-                    onClick={() => removeChecklistItem(item.id)}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-brand-red hover:bg-brand-red/10"
-                  >
-                    <TrashIcon />
-                  </button>
+                  {active.status !== "done" && (
+                    <button
+                      type="button"
+                      aria-label="Remove checklist item"
+                      title="Remove checklist item"
+                      onClick={() => removeChecklistItem(item.id)}
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-brand-red hover:bg-brand-red/10"
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
                 </label>
               ))}
-              <div className="flex gap-2">
-                <input
-                  placeholder="Add checklist item"
-                  className="flex-1 bg-transparent px-2 py-1 text-sm outline-none"
-                  value={checklistDraft}
-                  onChange={(e) => setChecklistDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addChecklistItem();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="clay-btn px-3 py-1 text-xs"
-                  onClick={addChecklistItem}
-                >
-                  Add
-                </button>
-              </div>
+              {active.status !== "done" && (
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Add checklist item"
+                    className="flex-1 bg-transparent px-2 py-1 text-sm outline-none"
+                    value={checklistDraft}
+                    onChange={(e) => setChecklistDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addChecklistItem();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="clay-btn px-3 py-1 text-xs"
+                    onClick={addChecklistItem}
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
             </div>
             </div>
 

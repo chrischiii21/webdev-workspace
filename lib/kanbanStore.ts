@@ -82,7 +82,7 @@ export async function listTasks(): Promise<Task[]> {
   const { data, error } = await supabase
     .from("tasks")
     .select("*")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as TaskRow[]).map(fromRow);
 }
@@ -132,6 +132,7 @@ export async function updateTask(
   if (fetchError) throw fetchError;
   if (!existing) return null;
   const current = fromRow(existing as TaskRow);
+  if (current.status === "done") return current;
 
   const now = new Date().toISOString();
   const statusChanged = patch.status !== undefined && patch.status !== current.status;

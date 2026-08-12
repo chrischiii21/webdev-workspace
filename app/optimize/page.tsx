@@ -9,6 +9,7 @@ interface QueueItem {
   name: string;
   status: "pending" | "working" | "done" | "error";
   previewUrl: string;
+  posterUrl: string | null;
   originalSize: number;
   optimizedSize: number | null;
   blobUrl: string | null;
@@ -100,8 +101,31 @@ async function dbLoadFresh(): Promise<StoredResult[]> {
 const VIDEO_EXT_RE = /\.(mp4|mov|webm|mkv|avi|m4v)(\?|#|$)/i;
 
 function isVideoItem(item: QueueItem): boolean {
+  // Once conversion finishes, the server-assigned filename is authoritative --
+  // a source URL like a YouTube watch link carries no file extension to sniff.
+  if (item.filename) return /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(item.filename);
   if (item.file) return item.file.type.startsWith("video/");
+  if (item.url && youTubeThumbnail(item.url)) return true;
   return VIDEO_EXT_RE.test(item.url ?? "");
+}
+
+function youTubeThumbnail(rawUrl: string): string | null {
+  try {
+    const u = new URL(rawUrl);
+    const host = u.hostname.toLowerCase().replace(/^(www\.|m\.|music\.)/, "");
+    let id: string | null = null;
+    if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0] || null;
+    else if (host === "youtube.com") {
+      id = u.searchParams.get("v");
+      if (!id) {
+        const match = u.pathname.match(/^\/(shorts|embed)\/([^/]+)/);
+        id = match ? match[2] : null;
+      }
+    }
+    return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
+  } catch {
+    return null;
+  }
 }
 
 function formatBytes(n: number): string {
@@ -215,16 +239,28 @@ export default function OptimizePage() {
       const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? item.name;
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
+      // A URL-sourced item's previewUrl is the source page/link, not playable
+      // media (notably a YouTube watch URL) -- swap it for the converted blob.
+      const name = item.url ? filename.replace(/\.[a-zA-Z0-9]+$/, "") : item.name;
       setQueue((prev) =>
         prev.map((q) =>
           q.id === item.id
-            ? { ...q, status: "done", optimizedSize, originalSize, blobUrl, filename }
+            ? {
+                ...q,
+                status: "done",
+                optimizedSize,
+                originalSize,
+                blobUrl,
+                filename,
+                name,
+                previewUrl: item.url ? blobUrl : q.previewUrl,
+              }
             : q,
         ),
       );
       void dbPut({
         id: item.id,
-        name: item.name,
+        name,
         filename,
         originalSize,
         optimizedSize,
@@ -250,6 +286,7 @@ export default function OptimizePage() {
       name: file.name,
       status: "pending",
       previewUrl: URL.createObjectURL(file),
+      posterUrl: null,
       originalSize: file.size,
       optimizedSize: null,
       blobUrl: null,
@@ -283,6 +320,7 @@ export default function OptimizePage() {
       name,
       status: "pending",
       previewUrl: url,
+      posterUrl: youTubeThumbnail(url),
       originalSize: 0,
       optimizedSize: null,
       blobUrl: null,
@@ -344,6 +382,7 @@ export default function OptimizePage() {
               name: r.name,
               status: "done",
               previewUrl: blobUrl,
+              posterUrl: null,
               originalSize: r.originalSize,
               optimizedSize: r.optimizedSize,
               blobUrl,
@@ -475,7 +514,7 @@ export default function OptimizePage() {
                   }}
                 >
                   <p className="text-xs font-medium text-foreground/70">
-                    Paste an image or video URL
+                    Paste an image or video URL, or a YouTube link
                   </p>
                   <input
                     autoFocus
@@ -558,6 +597,27 @@ export default function OptimizePage() {
           </div>
         )}
 
+        {queue.length === 0 && (
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={onDrop}
+            onClick={() => setPickerOpen(true)}
+            className={`flex min-h-[50vh] flex-col items-center justify-center gap-2 rounded-sm border-2 border-dashed border-[var(--surface-border)] p-8 text-center cursor-pointer clay ${
+              dragActive ? "border-brand-orange" : ""
+            }`}
+          >
+            <UploadIcon />
+            <p className="text-sm font-medium text-foreground">No files yet</p>
+            <p className="text-xs text-foreground/50">
+              Drag and drop, paste, or click to upload images or videos
+            </p>
+          </div>
+        )}
+
         {queue.length > 0 && (
           <div className="flex flex-col gap-2 p-4 clay">
             <div className="flex items-center justify-between">
@@ -594,6 +654,7 @@ export default function OptimizePage() {
                     {isVideoItem(item) ? (
                       <video
                         src={item.previewUrl}
+                        poster={item.posterUrl ?? undefined}
                         muted
                         className="h-8 w-8 shrink-0 rounded-sm object-cover clay"
                       />
@@ -687,6 +748,7 @@ function DetailPanel({
           <video
             key={item.previewUrl}
             src={item.previewUrl}
+            poster={item.posterUrl ?? undefined}
             controls
             muted
             className="max-h-64 w-full object-contain"
