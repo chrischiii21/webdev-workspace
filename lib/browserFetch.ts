@@ -1,10 +1,26 @@
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser } from "playwright-core";
 
 let browserPromise: Promise<Browser> | null = null;
 
+// playwright-core ships no browser of its own. Locally it finds the one
+// cached by `npx playwright install` automatically; on Vercel that cache
+// doesn't exist and the full download doesn't survive into the deployed
+// function, so @sparticuz/chromium's Lambda-built binary is used instead.
+async function launchBrowser(): Promise<Browser> {
+  if (process.env.VERCEL) {
+    const { default: awsChromium } = await import("@sparticuz/chromium");
+    return chromium.launch({
+      args: awsChromium.args,
+      executablePath: await awsChromium.executablePath(),
+      headless: true,
+    });
+  }
+  return chromium.launch({ headless: true });
+}
+
 function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
-    browserPromise = chromium.launch({ headless: true });
+    browserPromise = launchBrowser();
   }
   return browserPromise;
 }
