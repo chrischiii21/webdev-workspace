@@ -4,6 +4,7 @@ import { employmentTypeOf, nameOf, passwordOf, roleOf } from "@/lib/roles";
 import AddUserForm from "./AddUserForm";
 import PasswordCell from "./PasswordCell";
 import DeleteUserButton from "./DeleteUserButton";
+import LastSignIn from "./LastSignIn";
 
 export default async function UsersPage() {
   const supabase = await createClient();
@@ -55,7 +56,7 @@ export default async function UsersPage() {
                   <PasswordCell password={passwordOf(u.app_metadata)} />
                 </td>
                 <td className="px-4 py-3 text-foreground/50">
-                  {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "Never"}
+                  <LastSignIn iso={u.last_sign_in_at ?? null} />
                 </td>
                 <td className="px-4 py-3 text-right">
                   {u.id !== me.id && <DeleteUserButton id={u.id} email={u.email ?? ""} />}
