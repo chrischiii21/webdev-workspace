@@ -13,7 +13,7 @@ const CHROMELESS_PATHS = ["/login"];
 
 const TOOL_LINKS = [
   { href: "/", label: "Brand Extractor", icon: PaletteIcon },
-  { href: "/optimize", label: "Image Optimizer", icon: OptimizeIcon },
+  { href: "/optimize", label: "Media Optimizer", icon: OptimizeIcon },
   { href: "/kanban", label: "Kanban Board", icon: BoardIcon },
   { href: "/reports", label: "Reports", icon: ReportIcon },
 ];

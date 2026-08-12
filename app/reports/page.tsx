@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ConfirmDialog from "@/app/components/ConfirmDialog";
 
 interface EodReport {
   id: string;
@@ -33,6 +34,21 @@ function formatDate(dateStr: string) {
   });
 }
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+      <path
+        d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6m-7 0 .7 9.1a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L15 6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 9v5M11.5 9v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function authorLabel(r: EodReport) {
   return r.authorName || r.author;
 }
@@ -48,24 +64,11 @@ function timestampLabel(r: EodReport) {
   return `${edited ? "Updated" : "Added"} ${at}`;
 }
 
-function buildStandupText(
-  date: string,
-  reports: EodReport[],
-  employmentByEmail: Record<string, EmploymentType>,
-) {
-  const lines = [`Daily Standup — ${formatDate(date)}`, ""];
-  for (const group of GROUPS) {
-    const groupReports = reports.filter(
-      (r) => (employmentByEmail[r.author] ?? "employee") === group.type,
-    );
-    if (groupReports.length === 0) continue;
-    lines.push(`${group.label}:`);
-    for (const r of groupReports) {
-      lines.push(`  ${authorLabel(r)}`);
-      lines.push(`    Did: ${r.didToday}`);
-      lines.push(`    Next: ${r.nextUp || "—"}`);
-    }
-    lines.push("");
+// Today's "what's next" is what gets read out at tomorrow's DSU.
+function buildDsuText(date: string, reports: EodReport[]) {
+  const lines = [`DSU Report — ${formatDate(date)}`, ""];
+  for (const r of [...reports].sort((a, b) => authorLabel(a).localeCompare(authorLabel(b)))) {
+    lines.push(`${authorLabel(r)}: ${r.nextUp || "—"}`);
   }
   return lines.join("\n").trim();
 }
@@ -81,6 +84,9 @@ export default function ReportsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showDsu, setShowDsu] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch("/api/users")
@@ -105,10 +111,28 @@ export default function ReportsPage() {
       .finally(() => setLoading(false));
   }, [date]);
 
+  async function handleDelete() {
+    if (!confirmDeleteId) return;
+    setDeleting(true);
+    const res = await fetch(`/api/reports/${confirmDeleteId}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to delete report.");
+      setConfirmDeleteId(null);
+      return;
+    }
+    setReports((prev) => prev.filter((r) => r.id !== confirmDeleteId));
+    setDidToday("");
+    setNextUp("");
+    setConfirmDeleteId(null);
+  }
+
   const myReport = useMemo(() => reports.find((r) => r.author === me), [reports, me]);
-  const standupText = useMemo(
-    () => buildStandupText(date, reports, employmentByEmail),
-    [date, reports, employmentByEmail],
+  const dsuText = useMemo(() => buildDsuText(date, reports), [date, reports]);
+  const dsuOrder = useMemo(
+    () => [...reports].sort((a, b) => authorLabel(a).localeCompare(authorLabel(b))),
+    [reports],
   );
 
   async function handleSubmit(e: React.FormEvent) {
@@ -194,14 +218,10 @@ export default function ReportsPage() {
         <button
           type="button"
           disabled={reports.length === 0}
-          onClick={async () => {
-            await navigator.clipboard.writeText(standupText);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          }}
+          onClick={() => setShowDsu(true)}
           className="px-3 py-1.5 text-xs font-medium text-foreground clay-btn disabled:opacity-50"
         >
-          {copied ? "Copied!" : "Copy unified report"}
+          DSU report
         </button>
       </div>
 
@@ -224,7 +244,20 @@ export default function ReportsPage() {
                 <div key={r.id} className="clay flex flex-col gap-2 p-4">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold text-foreground">{authorLabel(r)}</p>
-                    <p className="shrink-0 text-[10px] text-foreground/40">{timestampLabel(r)}</p>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <p className="text-[10px] text-foreground/40">{timestampLabel(r)}</p>
+                      {r.author === me && (
+                        <button
+                          type="button"
+                          aria-label="Delete report"
+                          title="Delete report"
+                          onClick={() => setConfirmDeleteId(r.id)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-brand-red hover:bg-brand-red/10"
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="text-sm text-foreground/70">
@@ -248,6 +281,69 @@ export default function ReportsPage() {
           </div>
         );
       })}
+
+      {showDsu && (
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowDsu(false)}
+        >
+          <div
+            className="clay flex w-full max-w-lg flex-col gap-3 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">DSU Report</h2>
+                <p className="text-xs text-foreground/50">
+                  What&apos;s next for {formatDate(date)} — read at tomorrow&apos;s standup
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDsu(false)}
+                aria-label="Close"
+                className="text-foreground/40 hover:text-foreground"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+              {dsuOrder.map((r) => (
+                <div key={r.id} className="clay-well px-3 py-2">
+                  <p className="text-xs font-semibold text-foreground">{authorLabel(r)}</p>
+                  <p className="whitespace-pre-wrap text-sm text-foreground/70">
+                    {r.nextUp || "—"}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(dsuText);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              className="self-start px-3 py-1.5 text-xs font-medium text-foreground clay-btn"
+            >
+              {copied ? "Copied!" : "Copy as text"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        title="Delete report"
+        description="Delete this report? This can't be undone."
+        confirmLabel="Delete"
+        danger
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </main>
   );
 }

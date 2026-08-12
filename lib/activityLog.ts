@@ -1,6 +1,4 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
+import { createClient } from "@/lib/supabase/server";
 
 export interface ActivityEvent {
   id: string;
@@ -10,39 +8,30 @@ export interface ActivityEvent {
   at: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "activity.json");
 const MAX_EVENTS = 500;
 
-// ponytail: single in-memory write queue, same tradeoff as kanbanStore.
-let queue: Promise<unknown> = Promise.resolve();
-
-async function readAll(): Promise<ActivityEvent[]> {
-  try {
-    const raw = await readFile(DATA_FILE, "utf-8");
-    return JSON.parse(raw) as ActivityEvent[];
-  } catch {
-    return [];
-  }
+export async function logEvent(actor: string, action: string, target: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("activity_events").insert({ actor, action, target });
+  if (error) throw error;
 }
 
-async function writeAll(events: ActivityEvent[]): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(DATA_FILE, JSON.stringify(events, null, 2));
-}
-
-export function logEvent(actor: string, action: string, target: string): Promise<void> {
-  const run = queue.then(async () => {
-    const events = await readAll();
-    events.push({ id: randomUUID(), actor, action, target, at: new Date().toISOString() });
-    if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
-    await writeAll(events);
-  });
-  queue = run.catch(() => {});
-  return run;
-}
-
+// ponytail: table isn't trimmed on write anymore (Postgres storage is cheap
+// at this volume) -- listEvents just caps what it reads. Add a cron/trigger
+// to prune old rows if the table ever gets large enough to matter.
 export async function listEvents(): Promise<ActivityEvent[]> {
-  const events = await readAll();
-  return events.slice().reverse();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("*")
+    .order("at", { ascending: false })
+    .limit(MAX_EVENTS);
+  if (error) throw error;
+  return (data as ActivityEvent[]).map((row) => ({
+    id: row.id,
+    actor: row.actor,
+    action: row.action,
+    target: row.target,
+    at: row.at,
+  }));
 }

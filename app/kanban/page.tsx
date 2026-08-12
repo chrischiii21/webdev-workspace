@@ -410,7 +410,7 @@ export default function KanbanPage() {
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4">
           <form
             onSubmit={createTask}
-            className="clay flex w-full max-w-md flex-col gap-3 p-6"
+            className="clay flex w-full max-w-lg flex-col gap-3 p-6"
           >
             <h2 className="text-lg font-semibold">
               New Task —{" "}

@@ -613,7 +613,7 @@ export default function Home() {
           onClick={closePreview}
         >
           <div
-            className="flex w-full max-w-md flex-col gap-4 p-5 clay"
+            className="flex w-full max-w-lg flex-col gap-4 p-5 clay"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

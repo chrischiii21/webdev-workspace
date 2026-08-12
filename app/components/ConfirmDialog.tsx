@@ -26,7 +26,7 @@ export default function ConfirmDialog({
       onClick={onCancel}
     >
       <div
-        className="clay flex w-full max-w-sm flex-col gap-3 p-6"
+        className="clay flex w-full max-w-md flex-col gap-3 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
