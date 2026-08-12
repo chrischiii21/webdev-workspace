@@ -117,7 +117,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Lost connection to the server mid-request. Please try again.");
+      }
       if (!res.ok) throw new Error(data.error ?? "Extraction failed.");
       setResult(data);
       setSelected(new Set(data.images.map((i: ExtractedImage) => i.url)));

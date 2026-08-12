@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { employmentTypeOf, nameOf } from "@/lib/roles";
 import { EodReport, listReports, upsertReport } from "@/lib/eodStore";
+import { parseBulletLines, sanitizeBulletText } from "@/lib/bulletText";
 
-function toBullets(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => ({ type: "TextBlock", text: `• ${line}`, wrap: true, spacing: "None" }));
+const NBSP = " ";
+
+function toBulletBlocks(text: string) {
+  return parseBulletLines(text).map(({ level, text: line }) => ({
+    type: "TextBlock",
+    // Adaptive Card TextBlocks render through HTML, which collapses plain
+    // spaces -- non-breaking spaces are the only way to keep the sub-bullet
+    // indent visible.
+    text: level === 1 ? `${NBSP.repeat(4)}◦ ${line}` : `• ${line}`,
+    wrap: true,
+    spacing: "None",
+  }));
 }
 
 function postToTeams(report: EodReport) {
@@ -37,11 +44,11 @@ function postToTeams(report: EodReport) {
       },
       { type: "TextBlock", text: who, isSubtle: true, spacing: "None", wrap: true },
       { type: "TextBlock", text: "What I did today", weight: "Bolder", spacing: "Medium", wrap: true },
-      ...toBullets(report.didToday),
+      ...toBulletBlocks(report.didToday),
       ...(report.nextUp
         ? [
             { type: "TextBlock", text: "What's next", weight: "Bolder", spacing: "Medium", wrap: true },
-            ...toBullets(report.nextUp),
+            ...toBulletBlocks(report.nextUp),
           ]
         : []),
     ],
@@ -80,8 +87,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const didToday = typeof body.didToday === "string" ? body.didToday.trim() : "";
-  const nextUp = typeof body.nextUp === "string" ? body.nextUp.trim() : "";
+  // Sanitized server-side too, not just in the form -- keeps stored reports
+  // uniformly bulleted even if a request ever bypasses the client sanitizer.
+  const didToday =
+    typeof body.didToday === "string" ? sanitizeBulletText(body.didToday) : "";
+  const nextUp = typeof body.nextUp === "string" ? sanitizeBulletText(body.nextUp) : "";
   const date =
     typeof body.date === "string" && body.date ? body.date : new Date().toISOString().slice(0, 10);
 

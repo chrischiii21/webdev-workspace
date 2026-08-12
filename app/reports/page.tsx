@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import { BULLET, SUB_BULLET, parseBulletLines, sanitizeBulletText } from "@/lib/bulletText";
 
 interface EodReport {
   id: string;
@@ -73,6 +74,110 @@ function buildDsuText(date: string, reports: EodReport[]) {
   return lines.join("\n").trim();
 }
 
+function currentLineRange(value: string, cursor: number) {
+  const start = value.lastIndexOf("\n", cursor - 1) + 1;
+  const nextBreak = value.indexOf("\n", cursor);
+  return { start, end: nextBreak === -1 ? value.length : nextBreak };
+}
+
+// Enter continues the list at the current level (or exits it if the bullet
+// is empty); Tab/Shift+Tab demote/promote the current line between a main
+// bullet and a sub-bullet.
+function handleBulletKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement>,
+  onChange: (next: string) => void,
+) {
+  const el = e.currentTarget;
+  const cursor = el.selectionStart;
+  const value = el.value;
+  const { start, end } = currentLineRange(value, cursor);
+  const line = value.slice(start, end);
+  const prefix = line.startsWith(SUB_BULLET) ? SUB_BULLET : line.startsWith(BULLET) ? BULLET : "";
+
+  if (e.key === "Tab") {
+    e.preventDefault();
+    if (!prefix) return;
+    if (e.shiftKey ? prefix !== SUB_BULLET : prefix !== BULLET) return;
+    const swapped = e.shiftKey ? BULLET : SUB_BULLET;
+    const next = value.slice(0, start) + swapped + line.slice(prefix.length) + value.slice(end);
+    onChange(next);
+    const delta = swapped.length - prefix.length;
+    requestAnimationFrame(() => el.setSelectionRange(cursor + delta, cursor + delta));
+    return;
+  }
+
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const content = line.slice(prefix.length);
+    if (prefix && content.trim() === "") {
+      const next = value.slice(0, start) + value.slice(end);
+      onChange(next);
+      requestAnimationFrame(() => el.setSelectionRange(start, start));
+      return;
+    }
+    const insert = "\n" + (prefix || BULLET);
+    const next = value.slice(0, cursor) + insert + value.slice(cursor);
+    onChange(next);
+    const pos = cursor + insert.length;
+    requestAnimationFrame(() => el.setSelectionRange(pos, pos));
+  }
+}
+
+// Multi-line pastes get bulletized to match; a single-line paste just drops
+// in inline (no reason to force a bullet mid-sentence).
+function handleBulletPaste(
+  e: React.ClipboardEvent<HTMLTextAreaElement>,
+  onChange: (next: string) => void,
+) {
+  const pasted = e.clipboardData.getData("text");
+  if (!pasted.includes("\n")) return;
+  e.preventDefault();
+  const el = e.currentTarget;
+  const value = el.value;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const bulletized = parseBulletLines(pasted)
+    .map(({ level, text }) => (level === 1 ? SUB_BULLET : BULLET) + text)
+    .join("\n");
+  onChange(value.slice(0, start) + bulletized + value.slice(end));
+}
+
+function BulletTextarea({
+  value,
+  onChange,
+  className,
+  placeholder,
+  required,
+  rows,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  className?: string;
+  placeholder?: string;
+  required?: boolean;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      required={required}
+      rows={rows}
+      value={value}
+      placeholder={placeholder}
+      className={className}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => {
+        if (e.currentTarget.value === "") {
+          onChange(BULLET);
+          requestAnimationFrame(() => e.currentTarget.setSelectionRange(BULLET.length, BULLET.length));
+        }
+      }}
+      onBlur={(e) => onChange(sanitizeBulletText(e.currentTarget.value))}
+      onKeyDown={(e) => handleBulletKeyDown(e, onChange)}
+      onPaste={(e) => handleBulletPaste(e, onChange)}
+    />
+  );
+}
+
 export default function ReportsPage() {
   const [date, setDate] = useState(todayStr());
   const [reports, setReports] = useState<EodReport[]>([]);
@@ -105,8 +210,10 @@ export default function ReportsPage() {
         setReports(list);
         setMe(data.me ?? "");
         const mine = list.find((r) => r.author === data.me);
-        setDidToday(mine?.didToday ?? "");
-        setNextUp(mine?.nextUp ?? "");
+        // Sanitized on load too, so an older plain-text report (predating
+        // this format) shows up bulleted, same as anything typed fresh.
+        setDidToday(mine ? sanitizeBulletText(mine.didToday) : "");
+        setNextUp(mine ? sanitizeBulletText(mine.nextUp) : "");
       })
       .finally(() => setLoading(false));
   }, [date]);
@@ -137,12 +244,16 @@ export default function ReportsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const cleanDidToday = sanitizeBulletText(didToday);
+    const cleanNextUp = sanitizeBulletText(nextUp);
+    setDidToday(cleanDidToday);
+    setNextUp(cleanNextUp);
     setSaving(true);
     setError(null);
     const res = await fetch("/api/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, didToday, nextUp }),
+      body: JSON.stringify({ date, didToday: cleanDidToday, nextUp: cleanNextUp }),
     });
     const data = await res.json();
     setSaving(false);
@@ -181,22 +292,22 @@ export default function ReportsPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
             What you did today
-            <textarea
+            <BulletTextarea
               required
               rows={5}
               value={didToday}
-              onChange={(e) => setDidToday(e.target.value)}
-              placeholder="Shipped the login redirect fix, reviewed PR #42..."
+              onChange={setDidToday}
+              placeholder={"Shipped the login redirect fix\nReviewed PR #42\n(Tab to add a sub-bullet)"}
               className="px-3 py-2 text-sm text-foreground outline-none clay-well"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             What&apos;s next
-            <textarea
+            <BulletTextarea
               rows={5}
               value={nextUp}
-              onChange={(e) => setNextUp(e.target.value)}
-              placeholder="Start on the reports API, follow up with QA..."
+              onChange={setNextUp}
+              placeholder={"Start on the reports API\nFollow up with QA"}
               className="px-3 py-2 text-sm text-foreground outline-none clay-well"
             />
           </label>
