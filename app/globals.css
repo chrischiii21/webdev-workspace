@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
+  --surface: #ffffff;
+  --surface-muted: #f4f4f5;
+  --surface-border: rgba(0, 0, 0, 0.1);
 }
 
 @theme {
@@ -19,54 +23,68 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Dark tokens apply by system preference, unless overridden by the theme
+   toggle (data-theme, set in ThemeToggle.tsx / read before paint in layout.tsx). */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #09090b;
     --foreground: #ededed;
+    --surface: #18181b;
+    --surface-muted: #212124;
+    --surface-border: rgba(255, 255, 255, 0.08);
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #ededed;
+  --surface: #18181b;
+  --surface-muted: #212124;
+  --surface-border: rgba(255, 255, 255, 0.08);
+}
+
 body {
-  background: var(--background);
+  background-color: var(--background);
+  /* Subtle film-grain texture over the flat background, matching the
+     reference dashboard's non-flat page surface. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-/* Claymorphism: soft, puffy, dual-shadow surfaces. */
-.clay {
-  border-radius: 1.5rem;
-  box-shadow:
-    8px 8px 16px rgba(0, 38, 62, 0.12),
-    -6px -6px 14px rgba(255, 255, 255, 0.85);
-}
+/* Flat, sharp-edged surfaces: a border and a fill, nothing else.
+   Layered as "components" so Tailwind utilities (bg-*, etc.) can still override. */
+@layer components {
+  .clay {
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    border-radius: 0.25rem;
+  }
 
-.clay-well {
-  border-radius: 1rem;
-  box-shadow:
-    inset 4px 4px 8px rgba(0, 38, 62, 0.12),
-    inset -4px -4px 8px rgba(255, 255, 255, 0.8);
-}
+  .clay-well {
+    background: var(--surface-muted);
+    border: 1px solid var(--surface-border);
+    border-radius: 0.25rem;
+  }
 
-.clay-btn {
-  border-radius: 9999px;
-  box-shadow:
-    6px 6px 12px rgba(0, 38, 62, 0.18),
-    -4px -4px 10px rgba(255, 255, 255, 0.75);
-  transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
+  .clay-btn {
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    border-radius: 0.25rem;
+    transition: background 0.15s ease;
+  }
 
-.clay-btn:active {
-  box-shadow:
-    inset 3px 3px 6px rgba(0, 0, 0, 0.2),
-    inset -3px -3px 6px rgba(255, 255, 255, 0.15);
-  transform: translateY(1px);
-}
+  .clay-btn:hover:not(:disabled) {
+    background: var(--surface-muted);
+  }
 
-.clay-btn:disabled {
-  box-shadow:
-    3px 3px 6px rgba(0, 38, 62, 0.1),
-    -2px -2px 6px rgba(255, 255, 255, 0.6);
-  transform: none;
+  .clay-btn:active:not(:disabled) {
+    background: var(--surface-border);
+  }
+
+  .clay-btn:disabled {
+    opacity: 0.5;
+  }
 }

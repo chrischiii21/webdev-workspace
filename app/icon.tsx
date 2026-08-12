@@ -17,11 +17,11 @@ export default function Icon() {
           color: "#fff",
           fontSize: 20,
           fontWeight: 700,
-          borderRadius: 8,
+          borderRadius: 6,
           fontFamily: "sans-serif",
         }}
       >
-        B
+        W
       </div>
     ),
     { ...size },

@@ -303,30 +303,30 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#e9eef2]">
+    <div className="flex flex-col gap-4 p-6">
       {loading && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#e9eef2]">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-navy clay-btn">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background">
+          <div className="flex h-20 w-20 items-center justify-center rounded-sm bg-brand-navy">
             <span className="h-9 w-9 animate-spin rounded-full border-4 border-white/30 border-t-white" />
           </div>
-          <p className="text-sm font-semibold text-brand-navy">
+          <p className="text-sm font-semibold text-foreground">
             Extracting brand assets...
           </p>
-          <p className="text-xs text-brand-navy/60">
+          <p className="text-xs text-foreground/60">
             Fetching colors and images from {url || "the site"}
           </p>
         </div>
       )}
 
-      <header className="sticky top-0 z-20 mx-4 mt-4 flex h-16 items-center gap-4 rounded-3xl bg-[#e9eef2] px-6 clay">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand-navy text-sm font-bold text-white clay-btn">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 px-6 clay">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-brand-navy text-sm font-bold text-white">
           B
         </div>
         <div className="shrink-0">
-          <p className="text-sm font-semibold text-brand-navy">
+          <p className="text-sm font-semibold text-foreground">
             Brand Extractor
           </p>
-          <p className="text-xs text-brand-navy/60">
+          <p className="text-xs text-foreground/60">
             colors + images + AVIF, in one pass
           </p>
         </div>
@@ -340,13 +340,13 @@ export default function Home() {
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com"
             aria-label="Website URL"
-            className="w-full flex-1 rounded-full bg-[#e9eef2] px-4 py-2.5 text-sm text-brand-navy outline-none clay-well placeholder:text-brand-navy/40"
+            className="w-full flex-1 px-4 py-2.5 text-sm text-foreground outline-none clay-well placeholder:text-foreground/40"
             required
           />
           <button
             type="submit"
             disabled={loading}
-            className="shrink-0 rounded-full bg-brand-orange px-5 py-2.5 text-sm font-semibold text-white clay-btn disabled:opacity-50"
+            className="shrink-0 bg-brand-orange px-5 py-2.5 text-sm font-semibold text-white clay-btn disabled:opacity-50"
           >
             {loading ? "Extracting..." : "Extract"}
           </button>
@@ -354,12 +354,12 @@ export default function Home() {
         {scraperUsage && (
           <div
             title="ScraperAPI credits used this billing cycle (last-resort fetch fallback only)"
-            className={`ml-2 shrink-0 rounded-full px-3 py-1.5 text-xs font-medium clay-well ${
+            className={`ml-2 shrink-0 px-3 py-1.5 text-xs font-medium clay-well ${
               scraperUsage.requestCount / scraperUsage.requestLimit > 0.9
                 ? "text-brand-red"
                 : scraperUsage.requestCount / scraperUsage.requestLimit > 0.7
                   ? "text-brand-orange"
-                  : "text-brand-navy/60"
+                  : "text-foreground/60"
             }`}
           >
             ScraperAPI {scraperUsage.requestCount}/{scraperUsage.requestLimit}
@@ -368,16 +368,16 @@ export default function Home() {
       </header>
 
       {error && (
-        <p className="mx-4 mt-4 rounded-2xl bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
+        <p className="bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
           {error}
         </p>
       )}
 
-      <div className="flex gap-4 p-4">
+      <div className="flex gap-4">
         {result && (
-          <aside className="sticky top-24 flex h-[calc(100vh-7rem)] w-72 shrink-0 flex-col gap-6 overflow-y-auto rounded-3xl bg-[#e9eef2] p-5 clay">
+          <aside className="sticky top-[5.5rem] flex h-[calc(100vh-7.5rem)] w-72 shrink-0 flex-col gap-6 overflow-y-auto p-5 clay">
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-brand-navy/60">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground/60">
                 Colors
               </p>
               <div className="flex flex-wrap gap-2">
@@ -389,22 +389,22 @@ export default function Home() {
                     className="group flex flex-col items-center gap-1"
                   >
                     <span
-                      className="block h-9 w-9 rounded-xl clay-btn"
+                      className="block h-9 w-9 rounded-sm clay-btn"
                       style={{ backgroundColor: c.hex }}
                     />
-                    <span className="text-[10px] text-brand-navy/60 group-hover:text-brand-navy">
+                    <span className="text-[10px] text-foreground/60 group-hover:text-foreground">
                       {copied === c.hex ? "copied" : c.hex}
                     </span>
                   </button>
                 ))}
                 {result.colors.length === 0 && (
-                  <p className="text-xs text-brand-navy/40">No colors found.</p>
+                  <p className="text-xs text-foreground/40">No colors found.</p>
                 )}
               </div>
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-brand-navy/60">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground/60">
                 Filter by type
               </p>
               <div className="flex flex-wrap gap-2">
@@ -414,10 +414,10 @@ export default function Home() {
                     onClick={() =>
                       setActiveKind((prev) => (prev === kind ? null : kind))
                     }
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium clay-btn ${
+                    className={`px-3 py-1.5 text-xs font-medium clay-btn ${
                       activeKind === kind
                         ? "bg-brand-magenta text-white"
-                        : "text-brand-navy"
+                        : "text-foreground/70"
                     }`}
                   >
                     {kind} ({count})
@@ -428,25 +428,25 @@ export default function Home() {
 
             <div className="flex flex-1 flex-col gap-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium uppercase tracking-wide text-brand-navy/60">
+                <p className="text-xs font-medium uppercase tracking-wide text-foreground/60">
                   Master Prompt
                 </p>
                 <button
                   onClick={() => copyText(masterPrompt, "prompt")}
-                  className="rounded-full px-3 py-1 text-xs font-medium text-brand-navy clay-btn"
+                  className="px-3 py-1 text-xs font-medium text-foreground clay-btn"
                 >
                   {copied === "prompt" ? "Copied!" : "Copy"}
                 </button>
               </div>
-              <div className="flex gap-1 rounded-full p-1 clay-well">
+              <div className="flex gap-1 p-1 clay-well">
                 {(["both", "colors", "images"] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setPromptMode(mode)}
-                    className={`flex-1 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
+                    className={`flex-1 px-2.5 py-1 text-xs font-medium capitalize ${
                       promptMode === mode
                         ? "bg-brand-navy text-white clay-btn"
-                        : "text-brand-navy/60"
+                        : "text-foreground/60"
                     }`}
                   >
                     {mode}
@@ -456,15 +456,15 @@ export default function Home() {
               <textarea
                 readOnly
                 value={masterPrompt}
-                className="min-h-[16rem] w-full flex-1 resize-none rounded-2xl bg-[#e9eef2] p-3 font-mono text-xs text-brand-navy clay-well"
+                className="min-h-[16rem] w-full flex-1 resize-none p-3 font-mono text-xs text-foreground clay-well"
               />
             </div>
           </aside>
         )}
 
-        <main className="flex-1 rounded-3xl bg-[#e9eef2] p-6 clay">
+        <main className="flex-1 p-6 clay">
           {!result && (
-            <p className="text-sm text-brand-navy/60">
+            <p className="text-sm text-foreground/60">
               Paste a website URL above to pull its brand colors and images.
             </p>
           )}
@@ -472,30 +472,30 @@ export default function Home() {
           {result && (
             <>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-brand-navy/70">
+                <p className="text-sm text-foreground/70">
                   Showing {visibleImages.length} of {result.images.length}{" "}
                   images from{" "}
-                  <span className="font-medium text-brand-navy">
+                  <span className="font-medium text-foreground">
                     {new URL(result.siteUrl).hostname}
                   </span>
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={selectAll}
-                    className="rounded-full px-3 py-1.5 text-xs font-medium text-brand-navy clay-btn"
+                    className="px-3 py-1.5 text-xs font-medium text-foreground clay-btn"
                   >
                     Select all
                   </button>
                   <button
                     onClick={deselectAll}
-                    className="rounded-full px-3 py-1.5 text-xs font-medium text-brand-navy clay-btn"
+                    className="px-3 py-1.5 text-xs font-medium text-foreground clay-btn"
                   >
                     Deselect all
                   </button>
                   <button
                     onClick={downloadSelected}
                     disabled={selected.size === 0 || bulkDownloading}
-                    className="flex items-center gap-1.5 rounded-full bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white clay-btn disabled:opacity-50"
+                    className="flex items-center gap-1.5 bg-brand-orange px-3 py-1.5 text-xs font-semibold text-white clay-btn disabled:opacity-50"
                   >
                     <DownloadIcon />
                     {bulkDownloading
@@ -511,11 +511,8 @@ export default function Home() {
                   const originalSize = originalSizes[img.url];
                   const loaded = loadedImages.has(img.url);
                   return (
-                    <div
-                      key={img.url}
-                      className="overflow-hidden rounded-2xl bg-[#e9eef2] p-2 clay"
-                    >
-                      <div className="relative flex h-32 items-center justify-center overflow-hidden rounded-xl clay-well">
+                    <div key={img.url} className="overflow-hidden p-2 clay">
+                      <div className="relative flex h-32 items-center justify-center overflow-hidden clay-well">
                         <input
                           type="checkbox"
                           checked={selected.has(img.url)}
@@ -523,13 +520,13 @@ export default function Home() {
                           className="absolute left-2 top-2 z-10 h-4 w-4 accent-brand-magenta"
                         />
                         {d && (
-                          <span className="absolute right-2 top-2 rounded-full bg-brand-navy/80 px-2 py-0.5 text-[10px] text-white">
+                          <span className="absolute right-2 top-2 rounded-sm bg-brand-navy/80 px-2 py-0.5 text-[10px] text-white">
                             {d.w} x {d.h}
                           </span>
                         )}
                         {!loaded && (
                           <span className="absolute inset-0 flex items-center justify-center">
-                            <span className="h-6 w-6 animate-spin rounded-full border-2 border-brand-navy/15 border-t-brand-navy/50" />
+                            <span className="h-6 w-6 animate-spin rounded-full border-2 border-foreground/15 border-t-foreground/50" />
                           </span>
                         )}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -569,15 +566,15 @@ export default function Home() {
                       </div>
                       <div className="flex items-center justify-between gap-2 px-1 pt-2">
                         <div className="flex items-center gap-1.5">
-                          <span className="rounded-full bg-brand-navy/10 px-2 py-0.5 text-[10px] font-semibold text-brand-navy">
+                          <span className="rounded-sm bg-foreground/10 px-2 py-0.5 text-[10px] font-semibold text-foreground/70">
                             {formatOf(img.url)}
                           </span>
-                          <span className="text-[11px] text-brand-navy/50">
+                          <span className="text-[11px] text-foreground/50">
                             {img.kind}
                           </span>
                         </div>
                         {originalSize != null && (
-                          <span className="text-[10px] text-brand-navy/50">
+                          <span className="text-[10px] text-foreground/50">
                             {formatBytes(originalSize)}
                           </span>
                         )}
@@ -588,14 +585,14 @@ export default function Home() {
                           target="_blank"
                           rel="noreferrer"
                           title="Open original"
-                          className="text-[11px] font-medium text-brand-navy/60 hover:text-brand-navy"
+                          className="text-[11px] font-medium text-foreground/60 hover:text-foreground"
                         >
                           open original
                         </a>
                         <button
                           onClick={() => openPreview(img.url)}
                           title="Preview optimized version"
-                          className="flex items-center gap-1 rounded-full bg-brand-orange px-2.5 py-1 text-[11px] font-semibold text-white clay-btn"
+                          className="flex items-center gap-1 bg-brand-orange px-2.5 py-1 text-[11px] font-semibold text-white clay-btn"
                         >
                           <DownloadIcon />
                           Optimize
@@ -612,26 +609,26 @@ export default function Home() {
 
       {preview && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-brand-navy/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={closePreview}
         >
           <div
-            className="flex w-full max-w-md flex-col gap-4 rounded-3xl bg-[#e9eef2] p-5 clay"
+            className="flex w-full max-w-md flex-col gap-4 p-5 clay"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-brand-navy">
+              <p className="text-sm font-semibold text-foreground">
                 Preview: {preview.filename}
               </p>
               <button
                 onClick={closePreview}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-brand-navy/60 clay-btn"
+                className="flex h-7 w-7 items-center justify-center text-foreground/60 clay-btn"
                 title="Close"
               >
                 ×
               </button>
             </div>
-            <div className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl clay-well">
+            <div className="relative flex h-64 items-center justify-center overflow-hidden clay-well">
               {preview.blobUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -640,10 +637,10 @@ export default function Home() {
                   className="h-full w-full object-contain p-3"
                 />
               ) : (
-                <span className="h-8 w-8 animate-spin rounded-full border-2 border-brand-navy/15 border-t-brand-navy/50" />
+                <span className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/15 border-t-foreground/50" />
               )}
             </div>
-            <p className="rounded-xl bg-brand-navy/5 px-3 py-2 text-center text-xs font-medium text-brand-navy/70">
+            <p className="bg-foreground/5 px-3 py-2 text-center text-xs font-medium text-foreground/70">
               {preview.originalSize != null && preview.optimizedSize != null ? (
                 <>
                   {formatBytes(preview.originalSize)} →{" "}
@@ -660,14 +657,14 @@ export default function Home() {
             <div className="flex gap-2">
               <button
                 onClick={closePreview}
-                className="flex-1 rounded-full px-3 py-2.5 text-sm font-medium text-brand-navy clay-btn"
+                className="flex-1 px-3 py-2.5 text-sm font-medium text-foreground clay-btn"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDownload}
                 disabled={!preview.blobUrl}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-orange px-3 py-2.5 text-sm font-semibold text-white clay-btn disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 bg-brand-orange px-3 py-2.5 text-sm font-semibold text-white clay-btn disabled:opacity-50"
               >
                 <DownloadIcon />
                 Download Optimized

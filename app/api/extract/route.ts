@@ -1,4 +1,6 @@
 import { extractBranding } from "@/lib/extract";
+import { logEvent } from "@/lib/activityLog";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const { url } = await request.json();
@@ -16,6 +18,13 @@ export async function POST(request: Request) {
 
   try {
     const result = await extractBranding(normalized);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      logEvent(user.email ?? user.id, "extracted assets", new URL(normalized).hostname);
+    }
     return Response.json(result);
   } catch (err) {
     console.error(`[extract] ${normalized}:`, err);
