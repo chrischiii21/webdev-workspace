@@ -7,11 +7,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isIP } from "node:net";
 import { lookup } from "node:dns/promises";
+import { createAdminClient } from "@/lib/supabase/server";
 
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
 
 const MAX_WIDTH = 1600;
 const MAX_VIDEO_WIDTH = 1280;
+const UPLOAD_BUCKET = "optimizer-uploads";
 
 const YOUTUBE_HOSTS = new Set([
   "youtube.com",
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   const urlField = form.get("url");
+  const storagePath = form.get("storagePath");
 
   let raw: Buffer;
   let name: string;
@@ -64,6 +67,10 @@ export async function POST(request: Request) {
     raw = Buffer.from(await file.arrayBuffer());
     name = file.name;
     type = file.type;
+  } else if (typeof storagePath === "string" && storagePath) {
+    const fetched = await fetchStoredMedia(storagePath);
+    if ("error" in fetched) return Response.json({ error: fetched.error }, { status: 400 });
+    ({ raw, name, type } = fetched);
   } else if (typeof urlField === "string" && urlField) {
     const fetched = await fetchRemoteMedia(urlField);
     if ("error" in fetched) return Response.json({ error: fetched.error }, { status: 400 });
@@ -72,9 +79,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing file or url." }, { status: 400 });
   }
 
-  if (type.startsWith("image/")) return optimizeImage(raw, name);
-  if (type.startsWith("video/")) return optimizeVideo(raw, name);
-  return Response.json({ error: "Not an image or video file." }, { status: 400 });
+  try {
+    if (type.startsWith("image/")) return await optimizeImage(raw, name);
+    if (type.startsWith("video/")) return await optimizeVideo(raw, name);
+    return Response.json({ error: "Not an image or video file." }, { status: 400 });
+  } finally {
+    if (typeof storagePath === "string" && storagePath) {
+      await createAdminClient().storage.from(UPLOAD_BUCKET).remove([storagePath]);
+    }
+  }
+}
+
+async function fetchStoredMedia(
+  path: string,
+): Promise<{ raw: Buffer; name: string; type: string } | { error: string }> {
+  const { data, error } = await createAdminClient().storage.from(UPLOAD_BUCKET).download(path);
+  if (error || !data) return { error: "Couldn't read the uploaded file." };
+  const raw = Buffer.from(await data.arrayBuffer());
+  const name = path.replace(/^[^-]+-/, "");
+  const type = data.type || "application/octet-stream";
+  return { raw, name, type };
 }
 
 async function fetchRemoteMedia(

@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+// Vercel serverless functions cap request bodies at 4.5MB -- files above
+// this go straight to Supabase Storage from the browser instead.
+const DIRECT_UPLOAD_THRESHOLD = 4 * 1024 * 1024;
 
 interface QueueItem {
   id: string;
@@ -226,8 +231,24 @@ export default function OptimizePage() {
     setQueue((prev) => prev.map((q) => (q.id === item.id ? { ...q, status: "working" } : q)));
     try {
       const form = new FormData();
-      if (item.file) form.append("file", item.file);
-      else form.append("url", item.url!);
+      if (item.file && item.file.size > DIRECT_UPLOAD_THRESHOLD) {
+        const urlRes = await fetch("/api/optimize/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: item.file.name }),
+        });
+        if (!urlRes.ok) throw new Error("Couldn't prepare upload.");
+        const { path, token } = await urlRes.json();
+        const { error: uploadError } = await createClient()
+          .storage.from("optimizer-uploads")
+          .uploadToSignedUrl(path, token, item.file, { contentType: item.file.type });
+        if (uploadError) throw new Error("Upload failed.");
+        form.append("storagePath", path);
+      } else if (item.file) {
+        form.append("file", item.file);
+      } else {
+        form.append("url", item.url!);
+      }
       const res = await fetch("/api/optimize", { method: "POST", body: form });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
