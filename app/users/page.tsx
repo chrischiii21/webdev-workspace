@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { employmentTypeOf, nameOf, passwordOf, roleOf } from "@/lib/roles";
+import { canManageUsers, canViewAllPages, canViewPasswords, employmentTypeOf, nameOf, passwordOf, roleOf } from "@/lib/roles";
 import AddUserForm from "./AddUserForm";
 import PasswordCell from "./PasswordCell";
 import DeleteUserButton from "./DeleteUserButton";
@@ -13,7 +13,10 @@ export default async function UsersPage() {
   } = await supabase.auth.getUser();
 
   // Middleware already gates this route -- this is defense in depth.
-  if (!me || roleOf(me.app_metadata) !== "admin") redirect("/");
+  const myRole = me ? roleOf(me.app_metadata) : "developer";
+  if (!me || !canViewAllPages(myRole)) redirect("/");
+  const canManage = canManageUsers(myRole);
+  const canSeePasswords = canViewPasswords(myRole);
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.listUsers();
@@ -25,7 +28,7 @@ export default async function UsersPage() {
         <p className="text-sm text-foreground/60">Create teammate accounts and manage roles</p>
       </div>
 
-      <AddUserForm />
+      {canManage && <AddUserForm />}
 
       {error && <p className="bg-brand-red/10 px-3 py-2 text-xs text-brand-red">{error.message}</p>}
 
@@ -53,13 +56,16 @@ export default async function UsersPage() {
                 <td className="px-4 py-3 capitalize text-foreground/70">{roleOf(u.app_metadata)}</td>
                 <td className="px-4 py-3 capitalize text-foreground/70">{employmentTypeOf(u.app_metadata)}</td>
                 <td className="px-4 py-3">
-                  <PasswordCell password={passwordOf(u.app_metadata)} />
+                  <PasswordCell
+                    password={canSeePasswords ? passwordOf(u.app_metadata) : null}
+                    restricted={!canSeePasswords}
+                  />
                 </td>
                 <td className="px-4 py-3 text-foreground/50">
                   <LastSignIn iso={u.last_sign_in_at ?? null} />
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {u.id !== me.id && <DeleteUserButton id={u.id} email={u.email ?? ""} />}
+                  {canManage && u.id !== me.id && <DeleteUserButton id={u.id} email={u.email ?? ""} />}
                 </td>
               </tr>
             ))}

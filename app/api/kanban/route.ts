@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks, type Priority } from "@/lib/kanbanStore";
 import { logEvent } from "@/lib/activityLog";
 import { createClient } from "@/lib/supabase/server";
+import { canAccessTask, roleOf } from "@/lib/roles";
 
 export async function GET() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
   const tasks = await listTasks();
-  return NextResponse.json({ tasks });
+  const visible = tasks.filter((t) => canAccessTask(t.assignedTo, user.app_metadata, user.email));
+  return NextResponse.json({ tasks: visible, isAdmin: roleOf(user.app_metadata) === "admin" });
 }
 
 export async function POST(req: NextRequest) {

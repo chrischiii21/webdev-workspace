@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deleteTask, listTasks, updateTask } from "@/lib/kanbanStore";
 import { logEvent } from "@/lib/activityLog";
 import { createClient } from "@/lib/supabase/server";
+import { canAccessTask } from "@/lib/roles";
 
 export async function PATCH(
   req: NextRequest,
@@ -16,6 +17,14 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const existing = (await listTasks()).find((t) => t.id === id);
+  if (!existing) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+  if (!canAccessTask(existing.assignedTo, user.app_metadata, user.email)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   const patch = await req.json();
   const task = await updateTask(id, patch, user.email ?? user.id);
   if (!task) {
@@ -40,6 +49,13 @@ export async function DELETE(
 
   const { id } = await params;
   const existing = (await listTasks()).find((t) => t.id === id);
+  if (!existing) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+  if (!canAccessTask(existing.assignedTo, user.app_metadata, user.email)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   const ok = await deleteTask(id);
   if (!ok) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });

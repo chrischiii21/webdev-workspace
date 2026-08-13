@@ -100,6 +100,7 @@ export default function AddUserForm() {
           className="px-3 py-2 text-sm text-foreground outline-none clay-well"
         >
           <option value="developer">Developer</option>
+          <option value="manager">Manager</option>
           <option value="admin">Admin</option>
         </select>
       </label>

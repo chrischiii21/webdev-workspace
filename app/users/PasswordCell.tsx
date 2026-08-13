@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 
-export default function PasswordCell({ password }: { password: string | null }) {
+export default function PasswordCell({
+  password,
+  restricted,
+}: {
+  password: string | null;
+  restricted?: boolean;
+}) {
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  if (restricted) return <span className="text-xs text-foreground/30">Restricted</span>;
   if (!password) return <span className="text-foreground/30">—</span>;
 
   async function copy() {

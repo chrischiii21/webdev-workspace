@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const role: Role = body.role === "admin" ? "admin" : "developer";
+  const role: Role =
+    body.role === "admin" ? "admin" : body.role === "manager" ? "manager" : "developer";
   const employmentType: EmploymentType = body.employmentType === "intern" ? "intern" : "employee";
   if (!email) {
     return NextResponse.json({ error: "Email is required." }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addComment } from "@/lib/kanbanStore";
+import { addComment, listTasks } from "@/lib/kanbanStore";
 import { createClient } from "@/lib/supabase/server";
+import { canAccessTask } from "@/lib/roles";
 
 export async function POST(
   req: NextRequest,
@@ -15,6 +16,14 @@ export async function POST(
   }
 
   const { id } = await params;
+  const existing = (await listTasks()).find((t) => t.id === id);
+  if (!existing) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+  if (!canAccessTask(existing.assignedTo, user.app_metadata, user.email)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
   const body = await req.json();
   const text = typeof body.text === "string" ? body.text.trim() : "";
   if (!text) {

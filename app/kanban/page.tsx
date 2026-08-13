@@ -128,11 +128,17 @@ export default function KanbanPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
   const [dismissed, setDismissed] = useState<Record<string, string>>(() => readDismissed());
+  const [search, setSearch] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState("");
 
   useEffect(() => {
     fetch("/api/kanban")
       .then((r) => r.json())
-      .then((data) => setTasks(data.tasks ?? []))
+      .then((data) => {
+        setTasks(data.tasks ?? []);
+        setIsAdmin(Boolean(data.isAdmin));
+      })
       .finally(() => setLoading(false));
     fetch("/api/users")
       .then((r) => r.json())
@@ -140,6 +146,16 @@ export default function KanbanPage() {
   }, []);
 
   const active = tasks.find((t) => t.id === activeId) ?? null;
+  const query = search.trim().toLowerCase();
+  const visibleTasks = tasks
+    .filter((t) => !assigneeFilter || t.assignedTo === assigneeFilter)
+    .filter(
+      (t) =>
+        !query ||
+        t.title.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        (t.assignedTo ? assigneeLabel(t.assignedTo).toLowerCase().includes(query) : false),
+    );
 
   function dismissTask(task: Task) {
     setDismissed((prev) => {
@@ -291,20 +307,45 @@ export default function KanbanPage() {
   }
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Kanban Board</h1>
-        <p className="text-sm text-foreground/60">Team to-do tracker</p>
+    <main className="flex h-full w-full flex-1 flex-col gap-6 overflow-hidden p-6">
+      <div className="flex shrink-0 items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Kanban Board</h1>
+          <p className="text-sm text-foreground/60">Team to-do tracker</p>
+        </div>
+        <div className="flex w-full max-w-xl gap-2">
+          <input
+            type="search"
+            placeholder="Search tasks…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="clay-well w-full px-3 py-2 text-sm outline-none"
+          />
+          {isAdmin && (
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="clay-well shrink-0 px-3 py-2 text-sm outline-none"
+            >
+              <option value="">All assignees</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.email}>
+                  {u.name || u.email}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <p className="text-sm text-foreground/60">Loading…</p>
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-cols-3">
           {COLUMNS.map((col) => (
             <div
               key={col.status}
-              className={`clay-well flex min-h-[300px] flex-col gap-3 p-4 outline-2 outline-offset-[-2px] transition-colors ${
+              className={`clay-well flex min-h-[300px] flex-col gap-3 overflow-hidden p-4 outline-2 outline-offset-[-2px] transition-colors ${
                 dragOverStatus === col.status ? "outline-brand-navy" : "outline-transparent"
               }`}
               onDragOver={(e) => {
@@ -321,14 +362,22 @@ export default function KanbanPage() {
                 setDraggingId(null);
               }}
             >
-              <h2 className="px-1 text-sm font-semibold text-foreground">
+              <h2 className="shrink-0 px-1 text-sm font-semibold text-foreground">
                 {col.label}{" "}
                 <span className="text-foreground/40">
-                  {tasks.filter((t) => t.status === col.status).length}
+                  {visibleTasks.filter((t) => t.status === col.status).length}
                 </span>
               </h2>
-              <div className="flex flex-1 flex-col gap-1.5">
-                {tasks
+              <button
+                type="button"
+                onClick={() => setCreatingStatus(col.status)}
+                className="flex shrink-0 items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs text-foreground/40 hover:bg-[var(--surface-muted)] hover:text-foreground/70"
+              >
+                <PlusIcon />
+                New
+              </button>
+              <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+                {visibleTasks
                   .filter((t) => t.status === col.status)
                   .map((task) => {
                     const done = task.checklist.filter((c) => c.done).length;
@@ -397,14 +446,6 @@ export default function KanbanPage() {
                       </button>
                     );
                   })}
-                <button
-                  type="button"
-                  onClick={() => setCreatingStatus(col.status)}
-                  className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs text-foreground/40 hover:bg-[var(--surface-muted)] hover:text-foreground/70"
-                >
-                  <PlusIcon />
-                  New
-                </button>
               </div>
             </div>
           ))}

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Role } from "@/lib/roles";
+import { canViewAllPages } from "@/lib/roles";
 import type { Task } from "@/lib/kanbanStore";
 import { isTaskMoved, isTaskNew, readDismissed } from "@/lib/kanbanBadges";
 import ThemeToggle from "./ThemeToggle";
@@ -14,6 +15,7 @@ const CHROMELESS_PATHS = ["/login"];
 const TOOL_LINKS = [
   { href: "/", label: "Brand Extractor", icon: PaletteIcon },
   { href: "/optimize", label: "Media Optimizer", icon: OptimizeIcon },
+  { href: "/responsive", label: "Responsive Preview", icon: ResponsiveIcon },
   { href: "/kanban", label: "Kanban Board", icon: BoardIcon },
   { href: "/reports", label: "Reports", icon: ReportIcon },
 ];
@@ -36,6 +38,15 @@ function OptimizeIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
       <path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 15.5h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ResponsiveIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
+      <rect x="2.5" y="4" width="9" height="7" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="13" y="6" width="4.5" height="9" rx="0.5" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -155,7 +166,7 @@ export default function AppShell({
 
   if (CHROMELESS_PATHS.includes(pathname)) return <>{children}</>;
 
-  const links = user?.role === "admin" ? [...TOOL_LINKS, ...ADMIN_LINKS] : TOOL_LINKS;
+  const links = user && canViewAllPages(user.role) ? [...TOOL_LINKS, ...ADMIN_LINKS] : TOOL_LINKS;
   const current = links.find((l) => l.href === pathname);
 
   async function signOut() {
@@ -196,7 +207,7 @@ export default function AppShell({
             />
           ))}
 
-          {user?.role === "admin" && (
+          {user && canViewAllPages(user.role) && (
             <>
               {!collapsed && (
                 <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
