@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Priority = "low" | "medium" | "high";
 export type Status = "todo" | "in-progress" | "done";
+export type Tag = "development" | "qa-review";
 
 export interface ChecklistItem {
   id: string;
@@ -31,9 +32,11 @@ export interface Task {
   priority: Priority;
   assignedTo: string;
   status: Status;
+  tag: Tag | null;
   checklist: ChecklistItem[];
   history: HistoryEntry[];
   comments: Comment[];
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
   statusChangedAt: string;
@@ -52,9 +55,11 @@ interface TaskRow {
   priority: Priority;
   assigned_to: string;
   status: Status;
+  tag: Tag | null;
   checklist: ChecklistItem[];
   history: HistoryEntry[];
   comments: Comment[];
+  created_by: string;
   created_at: string;
   updated_at: string;
   status_changed_at: string;
@@ -68,9 +73,11 @@ function fromRow(row: TaskRow): Task {
     priority: row.priority,
     assignedTo: row.assigned_to,
     status: row.status,
+    tag: row.tag,
     checklist: row.checklist,
     history: row.history,
     comments: row.comments,
+    createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     statusChangedAt: row.status_changed_at,
@@ -93,6 +100,7 @@ export async function createTask(
     description: string;
     priority: Priority;
     assignedTo: string;
+    tag?: Tag | null;
   },
   actor: string,
 ): Promise<Task> {
@@ -105,10 +113,12 @@ export async function createTask(
       description: input.description,
       priority: input.priority,
       assigned_to: input.assignedTo,
+      tag: input.tag ?? null,
       status: "todo",
       checklist: [],
       history: [{ id: randomUUID(), message: "Created task", actor, at: now }],
       comments: [],
+      created_by: actor,
     })
     .select()
     .single();
@@ -156,6 +166,7 @@ export async function updateTask(
       ...(patch.priority !== undefined && { priority: patch.priority }),
       ...(patch.assignedTo !== undefined && { assigned_to: patch.assignedTo }),
       ...(patch.status !== undefined && { status: patch.status }),
+      ...(patch.tag !== undefined && { tag: patch.tag }),
       ...(patch.checklist !== undefined && { checklist: patch.checklist }),
       history,
       updated_at: now,

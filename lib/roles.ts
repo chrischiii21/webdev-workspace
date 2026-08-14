@@ -40,3 +40,13 @@ export function canAccessTask(
 ): boolean {
   return roleOf(appMetadata) === "admin" || assignedTo === email;
 }
+
+// Non-admins may only delete tasks they created themselves -- in particular,
+// they can never delete a task an admin created.
+export function canDeleteTask(
+  createdBy: string,
+  appMetadata: Record<string, unknown> | undefined,
+  email: string | null | undefined,
+): boolean {
+  return roleOf(appMetadata) === "admin" || createdBy === email;
+}

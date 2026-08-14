@@ -16,6 +16,9 @@ const TOOL_LINKS = [
   { href: "/", label: "Brand Extractor", icon: PaletteIcon },
   { href: "/optimize", label: "Media Optimizer", icon: OptimizeIcon },
   { href: "/responsive", label: "Responsive Preview", icon: ResponsiveIcon },
+];
+
+const PRODUCTIVITY_LINKS = [
   { href: "/kanban", label: "Kanban Board", icon: BoardIcon },
   { href: "/reports", label: "Reports", icon: ReportIcon },
 ];
@@ -166,7 +169,10 @@ export default function AppShell({
 
   if (CHROMELESS_PATHS.includes(pathname)) return <>{children}</>;
 
-  const links = user && canViewAllPages(user.role) ? [...TOOL_LINKS, ...ADMIN_LINKS] : TOOL_LINKS;
+  const links =
+    user && canViewAllPages(user.role)
+      ? [...TOOL_LINKS, ...PRODUCTIVITY_LINKS, ...ADMIN_LINKS]
+      : [...TOOL_LINKS, ...PRODUCTIVITY_LINKS];
   const current = links.find((l) => l.href === pathname);
 
   async function signOut() {
@@ -198,6 +204,15 @@ export default function AppShell({
             </p>
           )}
           {TOOL_LINKS.map((link) => (
+            <NavLink key={link.href} link={link} active={pathname === link.href} collapsed={collapsed} />
+          ))}
+
+          {!collapsed && (
+            <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-foreground/40">
+              Productivity
+            </p>
+          )}
+          {PRODUCTIVITY_LINKS.map((link) => (
             <NavLink
               key={link.href}
               link={link}

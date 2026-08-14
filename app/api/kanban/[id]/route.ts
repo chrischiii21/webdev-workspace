@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deleteTask, listTasks, updateTask } from "@/lib/kanbanStore";
 import { logEvent } from "@/lib/activityLog";
 import { createClient } from "@/lib/supabase/server";
-import { canAccessTask } from "@/lib/roles";
+import { canAccessTask, canDeleteTask } from "@/lib/roles";
 
 export async function PATCH(
   req: NextRequest,
@@ -52,7 +52,7 @@ export async function DELETE(
   if (!existing) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  if (!canAccessTask(existing.assignedTo, user.app_metadata, user.email)) {
+  if (!canDeleteTask(existing.createdBy, user.app_metadata, user.email)) {
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, listTasks, type Priority } from "@/lib/kanbanStore";
+import { createTask, listTasks, type Priority, type Tag } from "@/lib/kanbanStore";
 import { logEvent } from "@/lib/activityLog";
 import { createClient } from "@/lib/supabase/server";
 import { canAccessTask, roleOf } from "@/lib/roles";
@@ -15,7 +15,11 @@ export async function GET() {
 
   const tasks = await listTasks();
   const visible = tasks.filter((t) => canAccessTask(t.assignedTo, user.app_metadata, user.email));
-  return NextResponse.json({ tasks: visible, isAdmin: roleOf(user.app_metadata) === "admin" });
+  return NextResponse.json({
+    tasks: visible,
+    isAdmin: roleOf(user.app_metadata) === "admin",
+    email: user.email ?? user.id,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -35,6 +39,7 @@ export async function POST(req: NextRequest) {
   const priority: Priority = ["low", "medium", "high"].includes(body.priority)
     ? body.priority
     : "medium";
+  const tag: Tag | null = ["development", "qa-review"].includes(body.tag) ? body.tag : null;
 
   const task = await createTask(
     {
@@ -42,6 +47,7 @@ export async function POST(req: NextRequest) {
       description: typeof body.description === "string" ? body.description : "",
       priority,
       assignedTo: typeof body.assignedTo === "string" ? body.assignedTo : "",
+      tag,
     },
     user.email ?? user.id,
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ChecklistItem, Priority, Status, Task } from "@/lib/kanbanStore";
+import type { ChecklistItem, Priority, Status, Tag, Task } from "@/lib/kanbanStore";
 import { DISMISSED_KEY, isTaskMoved, isTaskNew, readDismissed } from "@/lib/kanbanBadges";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
 
@@ -23,8 +23,24 @@ const PRIORITY_DOT: Record<Priority, string> = {
   low: "bg-foreground/30",
 };
 
+const TAG_LABEL: Record<Tag, string> = {
+  development: "Development",
+  "qa-review": "QA Review",
+};
+
+const TAG_STYLE: Record<Tag, string> = {
+  development: "bg-sky-600 text-white",
+  "qa-review": "bg-purple-600 text-white",
+};
+
 function emptyForm() {
-  return { title: "", description: "", priority: "medium" as Priority, assignedTo: "" };
+  return {
+    title: "",
+    description: "",
+    priority: "medium" as Priority,
+    assignedTo: "",
+    tag: "" as Tag | "",
+  };
 }
 
 function TrashIcon() {
@@ -89,6 +105,66 @@ function ChecklistProgress({ done, total }: { done: number; total: number }) {
   );
 }
 
+function ProgressBar({ label, done, total }: { label: string; done: number; total: number }) {
+  const pct = Math.round((done / total) * 100);
+  return (
+    <div className="flex min-w-[10rem] items-center gap-2">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[10px] font-semibold text-white">
+        {label[0]?.toUpperCase()}
+      </span>
+      <span className="shrink-0 text-xs text-foreground/70">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
+        <div
+          className="h-full rounded-full bg-green-500 transition-[width]"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="shrink-0 text-[10px] text-foreground/40">
+        {done}/{total}
+      </span>
+    </div>
+  );
+}
+
+function AssigneeProgress({
+  tasks,
+  users,
+  isAdmin,
+}: {
+  tasks: Task[];
+  users: { id: string; email: string; name: string | null }[];
+  isAdmin: boolean;
+}) {
+  if (!isAdmin) {
+    if (tasks.length === 0) return null;
+    const done = tasks.filter((t) => t.status === "done").length;
+    return (
+      <div className="clay-well flex w-full p-3">
+        <ProgressBar label="Your progress" done={done} total={tasks.length} />
+      </div>
+    );
+  }
+
+  const byAssignee = new Map<string, { done: number; total: number }>();
+  for (const t of tasks) {
+    if (!t.assignedTo) continue;
+    const entry = byAssignee.get(t.assignedTo) ?? { done: 0, total: 0 };
+    entry.total += 1;
+    if (t.status === "done") entry.done += 1;
+    byAssignee.set(t.assignedTo, entry);
+  }
+  const rows = [...byAssignee.entries()].sort((a, b) => b[1].total - a[1].total);
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="clay-well flex shrink-0 flex-wrap gap-x-5 gap-y-2 p-3">
+      {rows.map(([email, { done, total }]) => (
+        <ProgressBar key={email} label={users.find((u) => u.email === email)?.name || email} done={done} total={total} />
+      ))}
+    </div>
+  );
+}
+
 function PlusIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5 shrink-0">
@@ -130,6 +206,7 @@ export default function KanbanPage() {
   const [dismissed, setDismissed] = useState<Record<string, string>>(() => readDismissed());
   const [search, setSearch] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
 
   useEffect(() => {
@@ -138,6 +215,7 @@ export default function KanbanPage() {
       .then((data) => {
         setTasks(data.tasks ?? []);
         setIsAdmin(Boolean(data.isAdmin));
+        setUserEmail(data.email ?? "");
       })
       .finally(() => setLoading(false));
     fetch("/api/users")
@@ -338,6 +416,8 @@ export default function KanbanPage() {
         </div>
       </div>
 
+      {!loading && <AssigneeProgress tasks={tasks} users={users} isAdmin={isAdmin} />}
+
       {loading ? (
         <p className="text-sm text-foreground/60">Loading…</p>
       ) : (
@@ -419,6 +499,13 @@ export default function KanbanPage() {
                         <span className="text-sm font-medium leading-snug text-foreground">
                           {task.title}
                         </span>
+                        {task.tag && (
+                          <span
+                            className={`w-fit rounded-sm px-1.5 py-0.5 text-[10px] font-medium ${TAG_STYLE[task.tag]}`}
+                          >
+                            {TAG_LABEL[task.tag]}
+                          </span>
+                        )}
                         {task.description && (
                           <p className="line-clamp-2 text-xs text-foreground/50">
                             {task.description}
@@ -489,9 +576,9 @@ export default function KanbanPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
-            <div className="flex gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <select
-                className="clay-well flex-1 px-3 py-2 outline-none"
+                className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                 value={form.priority}
                 onChange={(e) =>
                   setForm({ ...form, priority: e.target.value as Priority })
@@ -502,7 +589,7 @@ export default function KanbanPage() {
                 <option value="high">High</option>
               </select>
               <select
-                className="clay-well flex-1 px-3 py-2 outline-none"
+                className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                 value={form.assignedTo}
                 onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
               >
@@ -512,6 +599,15 @@ export default function KanbanPage() {
                     {u.name || u.email}
                   </option>
                 ))}
+              </select>
+              <select
+                className="clay-well w-full min-w-0 px-3 py-2 outline-none"
+                value={form.tag}
+                onChange={(e) => setForm({ ...form, tag: e.target.value as Tag | "" })}
+              >
+                <option value="">No tag</option>
+                <option value="development">Development</option>
+                <option value="qa-review">QA Review</option>
               </select>
             </div>
 
@@ -620,6 +716,13 @@ export default function KanbanPage() {
                 >
                   {active.priority}
                 </span>
+                {active.tag && (
+                  <span
+                    className={`rounded-sm px-2 py-0.5 text-xs font-medium ${TAG_STYLE[active.tag]}`}
+                  >
+                    {TAG_LABEL[active.tag]}
+                  </span>
+                )}
                 {active.status !== "done" && (
                   <button
                     type="button"
@@ -631,15 +734,17 @@ export default function KanbanPage() {
                     {editing ? <CheckIcon /> : <PencilIcon />}
                   </button>
                 )}
-                <button
-                  type="button"
-                  aria-label="Delete task"
-                  title="Delete task"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-brand-red hover:bg-brand-red/10"
-                >
-                  <TrashIcon />
-                </button>
+                {(isAdmin || active.createdBy === userEmail) && (
+                  <button
+                    type="button"
+                    aria-label="Delete task"
+                    title="Delete task"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-brand-red hover:bg-brand-red/10"
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label="Close"
@@ -664,9 +769,9 @@ export default function KanbanPage() {
                   onChange={(e) => refreshTask(active.id, { description: e.target.value })}
                 />
 
-                <div className="flex gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <select
-                    className="clay-well flex-1 px-3 py-2 outline-none"
+                    className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                     value={active.priority}
                     onChange={(e) =>
                       refreshTask(active.id, { priority: e.target.value as Priority })
@@ -677,7 +782,7 @@ export default function KanbanPage() {
                     <option value="high">High</option>
                   </select>
                   <select
-                    className="clay-well flex-1 px-3 py-2 outline-none"
+                    className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                     value={active.assignedTo}
                     onChange={(e) => refreshTask(active.id, { assignedTo: e.target.value })}
                   >
@@ -689,7 +794,7 @@ export default function KanbanPage() {
                     ))}
                   </select>
                   <select
-                    className="clay-well flex-1 px-3 py-2 outline-none"
+                    className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                     value={active.status}
                     onChange={(e) =>
                       refreshTask(active.id, { status: e.target.value as Status })
@@ -700,6 +805,17 @@ export default function KanbanPage() {
                         {c.label}
                       </option>
                     ))}
+                  </select>
+                  <select
+                    className="clay-well w-full min-w-0 px-3 py-2 outline-none"
+                    value={active.tag ?? ""}
+                    onChange={(e) =>
+                      refreshTask(active.id, { tag: (e.target.value || null) as Tag | null })
+                    }
+                  >
+                    <option value="">No tag</option>
+                    <option value="development">Development</option>
+                    <option value="qa-review">QA Review</option>
                   </select>
                 </div>
               </>
@@ -799,7 +915,7 @@ export default function KanbanPage() {
                 <p className="text-xs text-foreground/40">No activity yet.</p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
-                  {active.history.map((entry) => (
+                  {[...active.history].reverse().map((entry) => (
                     <li key={entry.id} className="text-xs text-foreground/60">
                       <span className="font-medium text-foreground/80">
                         {assigneeLabel(entry.actor)}
