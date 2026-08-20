@@ -496,7 +496,7 @@ export default function KanbanPage() {
                             {isNew ? "New" : "Moved"}
                           </span>
                         )}
-                        <span className="text-sm font-medium leading-snug text-foreground">
+                        <span className="break-words text-sm font-medium leading-snug text-foreground">
                           {task.title}
                         </span>
                         {task.tag && (
@@ -507,7 +507,7 @@ export default function KanbanPage() {
                           </span>
                         )}
                         {task.description && (
-                          <p className="line-clamp-2 text-xs text-foreground/50">
+                          <p className="line-clamp-2 break-words text-xs text-foreground/50">
                             {task.description}
                           </p>
                         )}
@@ -543,8 +543,9 @@ export default function KanbanPage() {
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4">
           <form
             onSubmit={createTask}
-            className="clay flex w-full max-w-lg flex-col gap-3 p-6"
+            className="clay flex max-h-[90vh] w-full max-w-2xl flex-col overflow-y-auto"
           >
+            <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-[var(--surface-border)] bg-[var(--surface)] p-6 pb-3">
             <h2 className="text-lg font-semibold">
               New Task —{" "}
               {COLUMNS.find((c) => c.status === creatingStatus)?.label}
@@ -572,7 +573,7 @@ export default function KanbanPage() {
             <textarea
               placeholder="Description"
               rows={3}
-              className="clay-well px-3 py-2 outline-none"
+              className="clay-well min-h-20 resize-y break-words px-3 py-2 outline-none"
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
@@ -610,7 +611,9 @@ export default function KanbanPage() {
                 <option value="qa-review">QA Review</option>
               </select>
             </div>
+            </div>
 
+            <div className="flex flex-col gap-3 p-6 pt-3">
             <div className="flex flex-col gap-2">
               <button
                 type="button"
@@ -635,7 +638,7 @@ export default function KanbanPage() {
                 <div className="clay-well flex flex-col gap-2 p-3">
                   {newChecklist.map((item) => (
                     <div key={item.id} className="clay flex items-center gap-2 px-3 py-2 text-sm">
-                      <span className="flex-1">{item.text}</span>
+                      <span className="min-w-0 flex-1 break-words">{item.text}</span>
                       <button
                         type="button"
                         aria-label="Remove checklist item"
@@ -648,13 +651,14 @@ export default function KanbanPage() {
                     </div>
                   ))}
                   <div className="flex gap-2">
-                    <input
+                    <textarea
                       placeholder="Add checklist item"
-                      className="flex-1 bg-transparent px-2 py-1 text-sm outline-none"
+                      rows={1}
+                      className="max-h-32 flex-1 resize-none break-words bg-transparent px-2 py-1 text-sm outline-none"
                       value={newChecklistDraft}
                       onChange={(e) => setNewChecklistDraft(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           addNewChecklistItem();
                         }
@@ -687,13 +691,14 @@ export default function KanbanPage() {
                 Create
               </button>
             </div>
+            </div>
           </form>
         </div>
       )}
 
       {active && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 p-4">
-          <div className="clay flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden">
+          <div className="clay flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden">
             <div className="flex items-start justify-between gap-2 p-6 pb-3">
               {editing ? (
                 <input
@@ -759,12 +764,13 @@ export default function KanbanPage() {
 
             <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[1.3fr_1fr]">
             <div className="flex flex-col gap-3 overflow-y-auto p-6 pt-0 md:border-r md:border-[var(--surface-border)]">
+            <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-[var(--surface-border)] bg-[var(--surface)] pb-3 pt-3">
             {editing ? (
               <>
                 <textarea
                   placeholder="Description"
                   rows={3}
-                  className="clay-well px-3 py-2 outline-none"
+                  className="clay-well min-h-20 resize-y break-words px-3 py-2 outline-none"
                   value={active.description}
                   onChange={(e) => refreshTask(active.id, { description: e.target.value })}
                 />
@@ -822,7 +828,7 @@ export default function KanbanPage() {
             ) : (
               <>
                 {active.description && (
-                  <p className="whitespace-pre-wrap text-sm text-foreground/70">
+                  <p className="whitespace-pre-wrap break-words text-sm text-foreground/70">
                     {active.description}
                   </p>
                 )}
@@ -842,6 +848,7 @@ export default function KanbanPage() {
                 </div>
               </>
             )}
+            </div>
 
             <div className="clay-well flex flex-col gap-2 p-3">
               <div className="flex items-center justify-between gap-3">
@@ -866,7 +873,13 @@ export default function KanbanPage() {
                     disabled={active.status === "done"}
                     onChange={() => toggleChecklistItem(item.id)}
                   />
-                  <span className={item.done ? "flex-1 line-through opacity-50" : "flex-1"}>
+                  <span
+                    className={
+                      item.done
+                        ? "min-w-0 flex-1 break-words line-through opacity-50"
+                        : "min-w-0 flex-1 break-words"
+                    }
+                  >
                     {item.text}
                   </span>
                   {active.status !== "done" && (
@@ -884,13 +897,14 @@ export default function KanbanPage() {
               ))}
               {active.status !== "done" && (
                 <div className="flex gap-2">
-                  <input
+                  <textarea
                     placeholder="Add checklist item"
-                    className="flex-1 bg-transparent px-2 py-1 text-sm outline-none"
+                    rows={1}
+                    className="max-h-32 flex-1 resize-none break-words bg-transparent px-2 py-1 text-sm outline-none"
                     value={checklistDraft}
                     onChange={(e) => setChecklistDraft(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         addChecklistItem();
                       }
@@ -947,7 +961,7 @@ export default function KanbanPage() {
                           {new Date(comment.at).toLocaleString()}
                         </span>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-foreground/70">
+                      <p className="mt-1 whitespace-pre-wrap break-words text-foreground/70">
                         {comment.text}
                       </p>
                     </li>
