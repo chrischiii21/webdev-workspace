@@ -144,6 +144,10 @@ export async function updateTask(
   const current = fromRow(existing as TaskRow);
   if (current.status === "done") return current;
 
+  if (patch.status === undefined && current.status === "todo" && patch.checklist?.some((c) => c.done)) {
+    patch = { ...patch, status: "in-progress" };
+  }
+
   const now = new Date().toISOString();
   const statusChanged = patch.status !== undefined && patch.status !== current.status;
   const history = statusChanged
