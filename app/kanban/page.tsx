@@ -390,7 +390,7 @@ export default function KanbanPage() {
 
   function moveTask(id: string, status: Status) {
     const task = tasks.find((t) => t.id === id);
-    if (!task || task.status === status || task.status === "done") return;
+    if (!task || task.status === status) return;
     refreshTask(id, { status });
   }
 
@@ -503,7 +503,7 @@ export default function KanbanPage() {
                     return (
                       <button
                         key={task.id}
-                        draggable={task.status !== "done"}
+                        draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/task-id", task.id);
                           setDraggingId(task.id);

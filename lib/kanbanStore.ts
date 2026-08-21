@@ -142,7 +142,7 @@ export async function updateTask(
   if (fetchError) throw fetchError;
   if (!existing) return null;
   const current = fromRow(existing as TaskRow);
-  if (current.status === "done") return current;
+  if (current.status === "done" && patch.status === undefined) return current;
 
   if (patch.status === undefined && current.status === "todo" && patch.checklist?.some((c) => c.done)) {
     patch = { ...patch, status: "in-progress" };
