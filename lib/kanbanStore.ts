@@ -148,6 +148,10 @@ export async function updateTask(
     patch = { ...patch, status: "in-progress" };
   }
 
+  if (patch.status === "done" && patch.assignedTo === undefined && current.assignedTo.length > 1) {
+    patch = { ...patch, assignedTo: [actor] };
+  }
+
   const now = new Date().toISOString();
   const statusChanged = patch.status !== undefined && patch.status !== current.status;
   const history = statusChanged

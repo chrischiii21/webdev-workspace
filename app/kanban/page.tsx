@@ -209,6 +209,20 @@ function PlusIcon() {
   );
 }
 
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-3 w-3">
+      <path
+        d="M3 4.5h14v9H8l-3.5 3v-3H3v-9Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function GripIcon() {
   return (
     <svg viewBox="0 0 10 20" fill="currentColor" className="h-4 w-2.5 shrink-0">
@@ -567,6 +581,17 @@ export default function KanbanPage() {
                           {task.checklist.length > 0 && (
                             <span className="ml-auto shrink-0">
                               <ChecklistProgress done={done} total={task.checklist.length} />
+                            </span>
+                          )}
+                          {isAdmin && col.status === "done" && task.comments.length > 0 && (
+                            <span
+                              className={`flex shrink-0 items-center gap-1 rounded-full bg-brand-orange/10 px-1.5 py-0.5 text-[10px] font-medium leading-none text-brand-orange ${
+                                task.checklist.length > 0 ? "" : "ml-auto"
+                              }`}
+                              title={`${task.comments.length} comment${task.comments.length > 1 ? "s" : ""} — open to review`}
+                            >
+                              <ChatIcon />
+                              {task.comments.length}
                             </span>
                           )}
                         </div>
