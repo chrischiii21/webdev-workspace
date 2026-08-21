@@ -30,7 +30,7 @@ export interface Task {
   title: string;
   description: string;
   priority: Priority;
-  assignedTo: string;
+  assignedTo: string[];
   status: Status;
   tag: Tag | null;
   checklist: ChecklistItem[];
@@ -53,7 +53,7 @@ interface TaskRow {
   title: string;
   description: string;
   priority: Priority;
-  assigned_to: string;
+  assigned_to: string[];
   status: Status;
   tag: Tag | null;
   checklist: ChecklistItem[];
@@ -99,7 +99,7 @@ export async function createTask(
     title: string;
     description: string;
     priority: Priority;
-    assignedTo: string;
+    assignedTo: string[];
     tag?: Tag | null;
   },
   actor: string,

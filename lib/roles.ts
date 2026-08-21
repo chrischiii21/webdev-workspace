@@ -34,11 +34,11 @@ export function nameOf(appMetadata: Record<string, unknown> | undefined): string
 }
 
 export function canAccessTask(
-  assignedTo: string,
+  assignedTo: string[],
   appMetadata: Record<string, unknown> | undefined,
   email: string | null | undefined,
 ): boolean {
-  return roleOf(appMetadata) === "admin" || assignedTo === email;
+  return roleOf(appMetadata) === "admin" || (email != null && assignedTo.includes(email));
 }
 
 // Non-admins may only delete tasks they created themselves -- in particular,

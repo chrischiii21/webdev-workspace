@@ -40,13 +40,16 @@ export async function POST(req: NextRequest) {
     ? body.priority
     : "medium";
   const tag: Tag | null = ["development", "qa-review"].includes(body.tag) ? body.tag : null;
+  const assignedTo: string[] = Array.isArray(body.assignedTo)
+    ? body.assignedTo.filter((a: unknown): a is string => typeof a === "string")
+    : [];
 
   const task = await createTask(
     {
       title,
       description: typeof body.description === "string" ? body.description : "",
       priority,
-      assignedTo: typeof body.assignedTo === "string" ? body.assignedTo : "",
+      assignedTo,
       tag,
     },
     user.email ?? user.id,

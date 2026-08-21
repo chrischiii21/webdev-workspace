@@ -33,12 +33,47 @@ const TAG_STYLE: Record<Tag, string> = {
   "qa-review": "bg-purple-600 text-white",
 };
 
+function toggleAssignee(current: string[], email: string): string[] {
+  return current.includes(email) ? current.filter((e) => e !== email) : [...current, email];
+}
+
+function AssigneePicker({
+  users,
+  selected,
+  onToggle,
+}: {
+  users: { id: string; email: string; name: string | null }[];
+  selected: string[];
+  onToggle: (email: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-foreground/50">Assignees</label>
+      <div className="clay-well flex max-h-32 flex-col gap-0.5 overflow-y-auto p-2">
+        {users.map((u) => (
+          <label
+            key={u.id}
+            className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-sm hover:bg-[var(--surface-muted)]"
+          >
+            <input
+              type="checkbox"
+              checked={selected.includes(u.email)}
+              onChange={() => onToggle(u.email)}
+            />
+            <span>{u.name || u.email}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function emptyForm() {
   return {
     title: "",
     description: "",
     priority: "medium" as Priority,
-    assignedTo: "",
+    assignedTo: [] as string[],
     tag: "" as Tag | "",
   };
 }
@@ -147,11 +182,12 @@ function AssigneeProgress({
 
   const byAssignee = new Map<string, { done: number; total: number }>();
   for (const t of tasks) {
-    if (!t.assignedTo) continue;
-    const entry = byAssignee.get(t.assignedTo) ?? { done: 0, total: 0 };
-    entry.total += 1;
-    if (t.status === "done") entry.done += 1;
-    byAssignee.set(t.assignedTo, entry);
+    for (const email of t.assignedTo) {
+      const entry = byAssignee.get(email) ?? { done: 0, total: 0 };
+      entry.total += 1;
+      if (t.status === "done") entry.done += 1;
+      byAssignee.set(email, entry);
+    }
   }
   const rows = [...byAssignee.entries()].sort((a, b) => b[1].total - a[1].total);
   if (rows.length === 0) return null;
@@ -226,13 +262,13 @@ export default function KanbanPage() {
   const active = tasks.find((t) => t.id === activeId) ?? null;
   const query = search.trim().toLowerCase();
   const visibleTasks = tasks
-    .filter((t) => !assigneeFilter || t.assignedTo === assigneeFilter)
+    .filter((t) => !assigneeFilter || t.assignedTo.includes(assigneeFilter))
     .filter(
       (t) =>
         !query ||
         t.title.toLowerCase().includes(query) ||
         t.description.toLowerCase().includes(query) ||
-        (t.assignedTo ? assigneeLabel(t.assignedTo).toLowerCase().includes(query) : false),
+        t.assignedTo.some((a) => assigneeLabel(a).toLowerCase().includes(query)),
     );
 
   function dismissTask(task: Task) {
@@ -461,7 +497,7 @@ export default function KanbanPage() {
                   .filter((t) => t.status === col.status)
                   .map((task) => {
                     const done = task.checklist.filter((c) => c.done).length;
-                    const assignee = task.assignedTo ? assigneeLabel(task.assignedTo) : null;
+                    const assigneeNames = task.assignedTo.map(assigneeLabel);
                     const isNew = isNewTask(task);
                     const isMoved = isMovedTask(task);
                     return (
@@ -516,12 +552,16 @@ export default function KanbanPage() {
                             <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[task.priority]}`} />
                             <span className="capitalize">{task.priority}</span>
                           </span>
-                          {assignee && (
-                            <span className="flex items-center gap-1">
-                              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[9px] font-semibold text-white">
-                                {assignee[0]?.toUpperCase()}
-                              </span>
-                              <span>{assignee}</span>
+                          {assigneeNames.length > 0 && (
+                            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                              {assigneeNames.map((name) => (
+                                <span key={name} className="flex items-center gap-1">
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[9px] font-semibold text-white">
+                                    {name[0]?.toUpperCase()}
+                                  </span>
+                                  <span className="truncate">{name}</span>
+                                </span>
+                              ))}
                             </span>
                           )}
                           {task.checklist.length > 0 && (
@@ -577,7 +617,7 @@ export default function KanbanPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <select
                 className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                 value={form.priority}
@@ -591,18 +631,6 @@ export default function KanbanPage() {
               </select>
               <select
                 className="clay-well w-full min-w-0 px-3 py-2 outline-none"
-                value={form.assignedTo}
-                onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
-              >
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.email}>
-                    {u.name || u.email}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                 value={form.tag}
                 onChange={(e) => setForm({ ...form, tag: e.target.value as Tag | "" })}
               >
@@ -611,6 +639,13 @@ export default function KanbanPage() {
                 <option value="qa-review">QA Review</option>
               </select>
             </div>
+            <AssigneePicker
+              users={users}
+              selected={form.assignedTo}
+              onToggle={(email) =>
+                setForm((f) => ({ ...f, assignedTo: toggleAssignee(f.assignedTo, email) }))
+              }
+            />
             </div>
 
             <div className="flex flex-col gap-3 p-6 pt-3">
@@ -789,18 +824,6 @@ export default function KanbanPage() {
                   </select>
                   <select
                     className="clay-well w-full min-w-0 px-3 py-2 outline-none"
-                    value={active.assignedTo}
-                    onChange={(e) => refreshTask(active.id, { assignedTo: e.target.value })}
-                  >
-                    <option value="">Unassigned</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.email}>
-                        {u.name || u.email}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="clay-well w-full min-w-0 px-3 py-2 outline-none"
                     value={active.status}
                     onChange={(e) =>
                       refreshTask(active.id, { status: e.target.value as Status })
@@ -824,6 +847,13 @@ export default function KanbanPage() {
                     <option value="qa-review">QA Review</option>
                   </select>
                 </div>
+                <AssigneePicker
+                  users={users}
+                  selected={active.assignedTo}
+                  onToggle={(email) =>
+                    refreshTask(active.id, { assignedTo: toggleAssignee(active.assignedTo, email) })
+                  }
+                />
               </>
             ) : (
               <>
@@ -835,9 +865,20 @@ export default function KanbanPage() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-foreground/40">Assigned to</p>
-                    <p className="text-foreground/80">
-                      {active.assignedTo ? assigneeLabel(active.assignedTo) : "—"}
-                    </p>
+                    {active.assignedTo.length > 0 ? (
+                      <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        {active.assignedTo.map(assigneeLabel).map((name) => (
+                          <span key={name} className="flex items-center gap-1 text-foreground/80">
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-navy text-[9px] font-semibold text-white">
+                              {name[0]?.toUpperCase()}
+                            </span>
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-foreground/80">—</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-foreground/40">Created</p>
